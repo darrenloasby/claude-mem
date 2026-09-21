@@ -24,6 +24,12 @@ export function SummaryCard({ summary }: SummaryCardProps) {
           <span className={`card-source source-${summary.platform_source || 'claude'}`}>
             {summary.platform_source || 'claude'}
           </span>
+          {summary.source_host && (
+            <span className="card-host" title="Machine this session ran on">{summary.source_host}</span>
+          )}
+          {summary.generated_by_model && (
+            <span className="card-generator-model" title="Model that generated this summary">{summary.generated_by_model}</span>
+          )}
           <span className="summary-project-badge">{summary.project}</span>
         </div>
         {summary.request && (

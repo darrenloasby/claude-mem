@@ -8,6 +8,7 @@ import { logger } from '../../utils/logger.js';
 import { HOOK_EXIT_CODES } from '../../shared/hook-constants.js';
 import { shouldTrackProject } from '../../shared/should-track-project.js';
 import { normalizePlatformSource } from '../../shared/platform-source.js';
+import { hostname } from 'node:os';
 import { resolveRuntimeContext, logServerFallback } from '../../services/hooks/runtime-selector.js';
 import { isServerClientError, type ServerRecordEventRequest } from '../../services/hooks/server-client.js';
 
@@ -21,6 +22,7 @@ async function dispatchToWorker(
     {
       contentSessionId: input.sessionId,
       platformSource,
+      sourceHost: hostname(),
       tool_name: input.toolName,
       tool_input: input.toolInput,
       tool_response: input.toolResponse,

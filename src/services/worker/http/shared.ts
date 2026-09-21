@@ -51,6 +51,8 @@ export interface ObservationPayload {
   toolResponse: unknown;
   cwd?: string;
   platformSource?: string;
+  /** Which machine the hook actually fired on -- see SessionStore v53 migration. */
+  sourceHost?: string;
   agentId?: string;
   agentType?: string;
   toolUseId?: string;
@@ -109,7 +111,7 @@ export async function ingestObservation(payload: ObservationPayload): Promise<In
   let sessionDbId: number;
   let promptNumber: number;
   try {
-    sessionDbId = store.createSDKSession(payload.contentSessionId, project, '', undefined, platformSource);
+    sessionDbId = store.createSDKSession(payload.contentSessionId, project, '', undefined, platformSource, payload.sourceHost);
     promptNumber = store.getPromptNumberFromUserPrompts(payload.contentSessionId, sessionDbId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -156,6 +158,7 @@ export async function ingestObservation(payload: ObservationPayload): Promise<In
         sessionDbId,
         project,
         platformSource,
+        sourceHost: payload.sourceHost ?? null,
         toolName: payload.toolName,
         toolInput: cleanedToolInput,
         toolResponse: cleanedToolResponse,

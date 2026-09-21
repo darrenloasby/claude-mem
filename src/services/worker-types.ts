@@ -144,6 +144,8 @@ export interface Observation {
   project: string;
   merged_into_project: string | null;
   platform_source: string;
+  source_host: string | null;
+  generated_by_model: string | null;
   type: string;
   title: string;
   subtitle: string | null;
@@ -163,6 +165,8 @@ export interface Summary {
   session_id: string; 
   project: string;
   platform_source: string;
+  source_host: string | null;
+  generated_by_model: string | null;
   request: string | null;
   investigated: string | null;
   learned: string | null;
@@ -176,8 +180,9 @@ export interface Summary {
 export interface UserPrompt {
   id: number;
   content_session_id: string;  
-  project: string; 
+  project: string;
   platform_source: string;
+  source_host: string | null;
   prompt_number: number;
   prompt_text: string;
   created_at: string;

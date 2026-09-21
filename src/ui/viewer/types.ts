@@ -4,6 +4,8 @@ export interface Observation {
   project: string;
   merged_into_project?: string | null;
   platform_source: string;
+  source_host?: string | null;
+  generated_by_model?: string | null;
   type: string;
   title: string | null;
   subtitle: string | null;
@@ -23,6 +25,8 @@ export interface Summary {
   session_id: string;
   project: string;
   platform_source: string;
+  source_host?: string | null;
+  generated_by_model?: string | null;
   request?: string;
   investigated?: string;
   learned?: string;
@@ -36,6 +40,7 @@ export interface UserPrompt {
   content_session_id: string;
   project: string;
   platform_source: string;
+  source_host?: string | null;
   prompt_number: number;
   prompt_text: string;
   created_at_epoch: number;

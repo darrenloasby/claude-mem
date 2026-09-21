@@ -17,6 +17,7 @@ import {
   getActiveHookType,
 } from '../shared/worker-utils.js';
 import { captureCliEvent } from '../services/telemetry/cli-telemetry.js';
+import { resolveClaudeCodeHookPlatform } from '../shared/platform-source.js';
 import { logger } from '../utils/logger.js';
 
 export interface HookCommandOptions {
@@ -97,7 +98,10 @@ async function executeHookPipeline(
 ): Promise<number> {
   const rawInput = await readJsonFromStdin({ safetyTimeoutMs: options.stdinSafetyTimeoutMs });
   const input = adapter.normalizeInput(rawInput);
-  input.platform = platform;
+  // The literal platform arg is trustworthy for every adapter except
+  // 'claude-code', whose wire format other Claude-compatible hosts can also
+  // speak -- see resolveClaudeCodeHookPlatform().
+  input.platform = platform === 'claude-code' ? resolveClaudeCodeHookPlatform() : platform;
   const result = await handler.execute(input);
 
   // MODEL_CONTEXT: the only stdout JSON emit, via the platform adapter.

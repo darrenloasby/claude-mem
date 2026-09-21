@@ -73,6 +73,20 @@ export abstract class BaseRouteHandler {
     return rawPlatformSource ? normalizePlatformSource(rawPlatformSource) : undefined;
   }
 
+  /**
+   * Which machine the hook actually fired on, as reported by the hook client
+   * (os.hostname() at invocation time) -- distinct from platformSource
+   * (which harness). No normalization: unlike platformSource this isn't a
+   * closed enum, it's whatever hostname the origin machine reports.
+   */
+  protected getSourceHostFromRequest(req: Request): string | undefined {
+    const body = req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : {};
+    const header = req.get?.('x-claude-mem-source-host');
+    return BaseRouteHandler.firstString(body.sourceHost)
+      ?? BaseRouteHandler.firstString(body.source_host)
+      ?? BaseRouteHandler.firstString(header);
+  }
+
   protected badRequest(res: Response, message: string): void {
     res.status(400).json({ error: message });
   }

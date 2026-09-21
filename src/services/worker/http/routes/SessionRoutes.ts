@@ -572,6 +572,7 @@ export class SessionRoutes extends BaseRouteHandler {
     project: z.string().optional(),
     prompt: z.string().optional(),
     platformSource: z.string().optional(),
+    sourceHost: z.string().optional(),
     customTitle: z.string().optional(),
   }).passthrough();
 
@@ -584,6 +585,7 @@ export class SessionRoutes extends BaseRouteHandler {
     agentId: z.string().optional(),
     agentType: z.string().optional(),
     platformSource: z.string().optional(),
+    sourceHost: z.string().optional(),
     tool_use_id: z.string().optional(),
     toolUseId: z.string().optional(),
     // Receipt join keys (frozen 2026-09-06). Pure pass-through onto tool_uses;
@@ -627,6 +629,7 @@ export class SessionRoutes extends BaseRouteHandler {
       orSessionId,
     } = req.body;
     const platformSource = this.getPlatformSourceFromRequest(req);
+    const sourceHost = this.getSourceHostFromRequest(req);
 
     const result = await ingestObservation({
       contentSessionId,
@@ -635,6 +638,7 @@ export class SessionRoutes extends BaseRouteHandler {
       toolResponse: tool_response,
       cwd,
       platformSource,
+      sourceHost,
       agentId,
       agentType,
       toolUseId: typeof tool_use_id === 'string' ? tool_use_id : (typeof toolUseId === 'string' ? toolUseId : undefined),
@@ -724,6 +728,7 @@ export class SessionRoutes extends BaseRouteHandler {
     const project = req.body.project || 'unknown';
     const rawPrompt = typeof req.body.prompt === 'string' ? req.body.prompt : undefined;
     const platformSource = this.getPlatformSourceFromRequest(req);
+    const sourceHost = this.getSourceHostFromRequest(req);
     const customTitle = req.body.customTitle || undefined;
 
     if (rawPrompt && isInternalProtocolPayload(rawPrompt)) {
@@ -769,7 +774,7 @@ export class SessionRoutes extends BaseRouteHandler {
 
     const store = this.dbManager.getSessionStore();
 
-    const sessionDbId = store.createSDKSession(contentSessionId, project, prompt, customTitle, platformSource);
+    const sessionDbId = store.createSDKSession(contentSessionId, project, prompt, customTitle, platformSource, sourceHost);
 
     const dbSession = store.getSessionById(sessionDbId);
     const isNewSession = !dbSession?.memory_session_id;

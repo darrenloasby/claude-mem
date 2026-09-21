@@ -735,6 +735,16 @@
       border-color: rgba(124, 58, 237, 0.24);
     }
 
+    /* Something speaking Claude's hook protocol without actually being Claude
+       Code -- e.g. a VS Code Copilot Chat agent with a Claude-compatible
+       plugin loader. See resolveClaudeCodeHookPlatform() in
+       shared/platform-source.ts for how this gets distinguished. */
+    .source-vscode-copilot {
+      background: rgba(6, 182, 212, 0.12);
+      color: #0e7490;
+      border-color: rgba(6, 182, 212, 0.22);
+    }
+
     [data-theme="dark"] .source-claude {
       color: #ffb067;
       border-color: rgba(255, 176, 103, 0.2);
@@ -748,6 +758,26 @@
     [data-theme="dark"] .source-cursor {
       color: #c4b5fd;
       border-color: rgba(196, 181, 253, 0.2);
+    }
+
+    [data-theme="dark"] .source-vscode-copilot {
+      color: #67e8f9;
+      border-color: rgba(103, 232, 249, 0.2);
+    }
+
+    /* Tiny provenance labels: which machine ran the session, and which model
+       actually generated this specific observation/summary (relevant once an
+       observer has a local-model-first + hosted-fallback setup -- did this
+       one get escalated, or stay on the cheap local model). Deliberately
+       plainer than .card-source: informational, not a category badge. */
+    .card-host,
+    .card-generator-model {
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      color: var(--color-text-muted);
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-secondary);
     }
 
     .card-title {

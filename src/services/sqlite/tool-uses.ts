@@ -81,6 +81,7 @@ export interface ToolUseRow {
   session_db_id: number | null;
   project: string;
   platform_source: string;
+  source_host: string | null;
   tool_name: string;
   tool_input: string | null;
   tool_response: string | null;
@@ -103,6 +104,8 @@ export interface UpsertToolUseInput {
   memorySessionId?: string | null;
   project: string;
   platformSource?: string;
+  /** Which machine the hook actually fired on -- see SessionStore v53 migration for why this is separate from platformSource. */
+  sourceHost?: string | null;
   toolName: string;
   toolInput?: string | null;
   toolResponse?: string | null;
@@ -178,6 +181,7 @@ export function createToolUsesSchema(db: Database): void {
       session_db_id INTEGER,
       project TEXT NOT NULL,
       platform_source TEXT NOT NULL DEFAULT '${DEFAULT_PLATFORM_SOURCE}',
+      source_host TEXT,
       tool_name TEXT NOT NULL,
       tool_input TEXT,
       tool_response TEXT,
@@ -230,16 +234,17 @@ export function upsertToolUse(db: Database, input: UpsertToolUseInput): number |
   const row = db.prepare(`
     INSERT INTO tool_uses (
       tool_use_id, content_session_id, memory_session_id, session_db_id, project,
-      platform_source, tool_name, tool_input, tool_response, cwd, prompt_number,
+      platform_source, source_host, tool_name, tool_input, tool_response, cwd, prompt_number,
       agent_type, agent_id, or_generation_id, or_session_id, content_hash,
       created_at, created_at_epoch
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(content_session_id, tool_use_id) DO UPDATE SET
       memory_session_id = COALESCE(excluded.memory_session_id, tool_uses.memory_session_id),
       session_db_id     = COALESCE(excluded.session_db_id, tool_uses.session_db_id),
       project           = CASE WHEN excluded.project != '' THEN excluded.project ELSE tool_uses.project END,
       platform_source   = excluded.platform_source,
+      source_host       = COALESCE(excluded.source_host, tool_uses.source_host),
       tool_input        = COALESCE(excluded.tool_input, tool_uses.tool_input),
       tool_response     = COALESCE(excluded.tool_response, tool_uses.tool_response),
       cwd               = COALESCE(excluded.cwd, tool_uses.cwd),
@@ -257,6 +262,7 @@ export function upsertToolUse(db: Database, input: UpsertToolUseInput): number |
     input.sessionDbId ?? null,
     input.project ?? '',
     normalizePlatformSource(input.platformSource),
+    input.sourceHost ?? null,
     input.toolName,
     toolInput,
     toolResponse,

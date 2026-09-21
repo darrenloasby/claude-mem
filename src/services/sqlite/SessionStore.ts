@@ -216,6 +216,9 @@ export class SessionStore {
     this.ensureSDKSessionsObservedColumns();
     this.ensureToolUsesTable();
     this.ensureTelegramWrapupsTable();
+    this.ensureSourceHostColumns();
+    this.ensureVscodeCopilotBackfill();
+    this.ensureSummaryGeneratedByModelColumn();
   }
 
   private getIndexColumns(indexName: string): string[] {
@@ -1941,6 +1944,82 @@ export class SessionStore {
     this.db.prepare('INSERT OR IGNORE INTO schema_versions (version, applied_at) VALUES (?, ?)').run(52, new Date().toISOString());
   }
 
+  // v53 — which machine a session/tool-use actually originated on. Distinct
+  // from platform_source (which harness: claude/codex/opencode/pi) -- this is
+  // for setups where one worker receives hook traffic from multiple hosts
+  // (e.g. a remote-SSH box tunneling its hooks back to a central worker), so
+  // records can be told apart by origin machine, not just by harness/agent.
+  private ensureSourceHostColumns(): void {
+    const sessionsInfo = this.db.query('PRAGMA table_info(sdk_sessions)').all() as TableColumnInfo[];
+    if (!sessionsInfo.some(col => col.name === 'source_host')) {
+      this.db.run('ALTER TABLE sdk_sessions ADD COLUMN source_host TEXT');
+    }
+
+    const toolUsesInfo = this.db.query('PRAGMA table_info(tool_uses)').all() as TableColumnInfo[];
+    if (!toolUsesInfo.some(col => col.name === 'source_host')) {
+      this.db.run('ALTER TABLE tool_uses ADD COLUMN source_host TEXT');
+    }
+
+    this.db.prepare('INSERT OR IGNORE INTO schema_versions (version, applied_at) VALUES (?, ?)').run(53, new Date().toISOString());
+  }
+
+  /**
+   * v54 — one-time backfill. Rows recorded before v53 had no way to tell a
+   * genuine Claude Code hook from a VS Code Copilot Chat agent speaking the
+   * same 'claude-code' hook wire format (see resolveClaudeCodeHookPlatform()
+   * in shared/platform-source.ts) -- both landed as platform_source='claude'.
+   *
+   * Tool-name vocabulary is the only retroactive signal available: VS Code's
+   * own built-in agent tools are plain lowercase snake_case (read_file,
+   * run_in_terminal, list_dir, ...) -- never Claude Code's PascalCase
+   * built-ins (Bash, Read, Edit, ...) and never the 'mcp__'-prefixed form
+   * Claude's own MCP tools use. sdk_sessions is only reclassified when EVERY
+   * tool_uses row under that session matches the pattern -- a session with a
+   * mix of PascalCase and snake_case tool names is left alone as ambiguous
+   * rather than guessed at.
+   */
+  private ensureVscodeCopilotBackfill(): void {
+    const NATIVE_TOOL_NAME_MATCH = `
+      tool_name NOT GLOB '*[A-Z]*'
+      AND tool_name GLOB '*_*'
+      AND tool_name NOT GLOB 'mcp__*'
+    `;
+
+    this.db.run(`
+      UPDATE sdk_sessions
+      SET platform_source = 'vscode-copilot'
+      WHERE platform_source = 'claude'
+        AND id IN (
+          SELECT session_db_id FROM tool_uses
+          WHERE session_db_id IS NOT NULL
+          GROUP BY session_db_id
+          HAVING COUNT(*) > 0
+            AND COUNT(*) = SUM(CASE WHEN platform_source = 'claude' AND ${NATIVE_TOOL_NAME_MATCH} THEN 1 ELSE 0 END)
+        )
+    `);
+
+    this.db.run(`
+      UPDATE tool_uses
+      SET platform_source = 'vscode-copilot'
+      WHERE platform_source = 'claude'
+        AND ${NATIVE_TOOL_NAME_MATCH}
+    `);
+
+    this.db.prepare('INSERT OR IGNORE INTO schema_versions (version, applied_at) VALUES (?, ?)').run(54, new Date().toISOString());
+  }
+
+  // v55 — same "which model actually generated this" tracking observations
+  // already has (see addObservationModelColumns / generated_by_model),
+  // extended to session_summaries. Distinct from sdk_sessions.observed_model,
+  // which is the OBSERVED IDE session's model, not the observer's.
+  private ensureSummaryGeneratedByModelColumn(): void {
+    const columns = this.db.query('PRAGMA table_info(session_summaries)').all() as TableColumnInfo[];
+    if (!columns.some(col => col.name === 'generated_by_model')) {
+      this.db.run('ALTER TABLE session_summaries ADD COLUMN generated_by_model TEXT');
+    }
+    this.db.prepare('INSERT OR IGNORE INTO schema_versions (version, applied_at) VALUES (?, ?)').run(55, new Date().toISOString());
+  }
+
   private ensureMergedIntoProjectColumns(): void {
     const obsCols = this.db
       .query('PRAGMA table_info(observations)')
@@ -2887,7 +2966,8 @@ export class SessionStore {
     project: string,
     userPrompt: string,
     customTitle?: string,
-    platformSource?: string
+    platformSource?: string,
+    sourceHost?: string
   ): number {
     const now = new Date();
     const nowEpoch = now.getTime();
@@ -2911,6 +2991,12 @@ export class SessionStore {
           WHERE id = ? AND (project IS NULL OR project = '')
         `).run(project, existing.id);
       }
+      if (sourceHost) {
+        this.db.prepare(`
+          UPDATE sdk_sessions SET source_host = ?
+          WHERE id = ? AND (source_host IS NULL OR source_host = '')
+        `).run(sourceHost, existing.id);
+      }
       if (customTitle) {
         // SELECT-then-UPDATE, never a decision on `.run().changes`
         // (bun:sqlite reports unreliable `changes` after RETURNING statements
@@ -2933,9 +3019,9 @@ export class SessionStore {
 
     const result = this.db.prepare(`
       INSERT INTO sdk_sessions
-      (content_session_id, memory_session_id, project, platform_source, user_prompt, custom_title, started_at, started_at_epoch, status)
-      VALUES (?, NULL, ?, ?, ?, ?, ?, ?, 'active')
-    `).run(contentSessionId, project, normalizedPlatformSource, storedUserPrompt, customTitle || null, now.toISOString(), nowEpoch);
+      (content_session_id, memory_session_id, project, platform_source, source_host, user_prompt, custom_title, started_at, started_at_epoch, status)
+      VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `).run(contentSessionId, project, normalizedPlatformSource, sourceHost || null, storedUserPrompt, customTitle || null, now.toISOString(), nowEpoch);
 
     if (customTitle) {
       this.enqueueSetTitleOp(contentSessionId, normalizedPlatformSource, customTitle);
@@ -3206,8 +3292,9 @@ export class SessionStore {
         const summaryStmt = this.db.prepare(`
           INSERT INTO session_summaries
           (memory_session_id, project, request, investigated, learned, completed,
-           next_steps, files_read, files_edited, notes, prompt_number, discovery_tokens, created_at, created_at_epoch)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           next_steps, files_read, files_edited, notes, prompt_number, discovery_tokens, created_at, created_at_epoch,
+           generated_by_model)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const result = summaryStmt.run(
@@ -3224,7 +3311,8 @@ export class SessionStore {
           promptNumber || null,
           discoveryTokens,
           timestampIso,
-          timestampEpoch
+          timestampEpoch,
+          generatedByModel || null
         );
         summaryId = Number(result.lastInsertRowid);
       }

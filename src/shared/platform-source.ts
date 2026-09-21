@@ -1,5 +1,22 @@
 export const DEFAULT_PLATFORM_SOURCE = 'claude';
 
+/**
+ * The 'claude-code' hook wire format is not exclusive to genuine Claude Code:
+ * any host speaking the same hook protocol -- e.g. a VS Code Copilot Chat
+ * agent with a Claude-compatible plugin loader -- invokes the exact same
+ * hook script with no other signal to tell them apart (both the claude-code
+ * adapter and hookCommand's own literal-platform-string assignment treat
+ * every 'claude-code'-invoked hook identically). Genuine Claude Code (CLI or
+ * the real Anthropic VS Code extension) always sets CLAUDE_CODE_ENTRYPOINT
+ * (confirmed empirically: 'claude-vscode' inside the real extension); nothing
+ * else speaking this protocol has a reason to set it. Its absence is treated
+ * as "something Claude-compatible, but not actually Claude" rather than
+ * silently defaulting to 'claude'.
+ */
+export function resolveClaudeCodeHookPlatform(): string {
+  return process.env.CLAUDE_CODE_ENTRYPOINT ? 'claude' : 'vscode-copilot';
+}
+
 function sanitizeRawSource(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, '-');
 }
