@@ -1,0 +1,141 @@
+{
+  "model": "gemma4-e4b:uc",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an offline observer building searchable long-term memory of a coding session's tool activity. For the newest turn shown to you, decide: action=\"skip\" if it is noise (navigation, a read that taught nothing new). action=\"observe\" with one or more observations if it is a finished, searchable unit of work -- a bugfix, feature, refactor, discovery, decision, or security-relevant finding. Titles must describe the work done, never a tool name. Facts must be concrete and grounded in the parameters/outcome actually shown -- never invent detail beyond it."
+    },
+    {
+      "role": "user",
+      "content": "Task requested: \"Fix the login bug\" (2026-09-21)"
+    },
+    {
+      "role": "assistant",
+      "content": "<skip_summary reason=\"session_start\" />"
+    },
+    {
+      "role": "user",
+      "content": "Tool: Edit at 2026-09-21T10:00:00Z (cwd: /repo)\nparameters: \"{\\\"file\\\":\\\"src/auth.ts\\\",\\\"old\\\":\\\"if (session.token) {\\\",\\\"new\\\":\\\"if (session?.token) {\\\"}\"\noutcome: \"{\\\"status\\\":\\\"ok\\\",\\\"linesChanged\\\":1}\""
+    }
+  ],
+  "temperature": 0.3,
+  "max_tokens": 8192,
+  "reasoning": {
+    "enabled": false
+  },
+  "enable_thinking": false,
+  "chat_template_kwargs": {
+    "enable_thinking": false
+  },
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "claude_mem_observation_response",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "skip",
+              "observe"
+            ],
+            "description": "skip when the tool activity shown is noise (navigation, a read with nothing learned). observe when it is a finished, searchable unit of work."
+          },
+          "skip_reason": {
+            "type": "string",
+            "description": "Short reason when action=skip (e.g. \"noise\", \"navigation\"). Empty string when action=observe."
+          },
+          "observations": {
+            "type": "array",
+            "description": "One or more observations when action=observe. Empty array when action=skip.",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "bugfix",
+                    "feature",
+                    "refactor",
+                    "change",
+                    "discovery",
+                    "decision",
+                    "security_alert",
+                    "security_note",
+                    "sensitive"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Describes the work done. Never a tool name."
+                },
+                "subtitle": {
+                  "type": "string"
+                },
+                "facts": {
+                  "type": "array",
+                  "description": "4-10 concrete facts, referencing real file paths/values from the shown parameters/outcome.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 4,
+                  "maxItems": 10
+                },
+                "narrative": {
+                  "type": "string"
+                },
+                "concepts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "how-it-works",
+                      "why-it-exists",
+                      "what-changed",
+                      "problem-solution",
+                      "gotcha",
+                      "pattern",
+                      "trade-off"
+                    ]
+                  }
+                },
+                "files_read": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "files_modified": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "title",
+                "subtitle",
+                "facts",
+                "narrative",
+                "concepts",
+                "files_read",
+                "files_modified"
+              ]
+            }
+          }
+        },
+        "required": [
+          "action",
+          "skip_reason",
+          "observations"
+        ]
+      }
+    }
+  }
+}

@@ -17,6 +17,7 @@ dist/
 plugin/data/
 plugin/data.backup/
 package-lock.json
+!observer/package-lock.json
 bun.lock
 !plugin/bun.lock
 !workers/sync-hub/bun.lock
@@ -51,3 +52,6 @@ docker/install-test/
 
 # Local session report artifacts (not part of distribution)
 reports/
+
+# memsearch plugin's local index/cache for this project
+.memsearch/

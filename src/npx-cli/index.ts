@@ -48,6 +48,7 @@ ${styleText('bold', 'Runtime Commands')} (requires Bun, delegates to installed p
   ${styleText('cyan', 'npx claude-mem server status')}        Show server status
   ${styleText('cyan', 'npx claude-mem server api-key create|list|revoke')}   Manage API keys
   ${styleText('cyan', 'npx claude-mem worker start|stop|restart|status')}    Worker compatibility aliases
+  ${styleText('cyan', 'npx claude-mem observer start|stop|restart|status')}  Local host-observer daemon (backs --provider host; git clone only)
   ${styleText('cyan', 'npx claude-mem search <query>')}       Search observations
   ${styleText('cyan', 'npx claude-mem mcp')}                    Start the stdio MCP server
   ${styleText('cyan', 'npx claude-mem hook cursor <event>')}    Run Cursor hook forwarding
@@ -207,6 +208,12 @@ async function main(): Promise<void> {
     case 'worker': {
       const { runWorkerAliasCommand } = await import('./commands/server.js');
       runWorkerAliasCommand(args.slice(1));
+      break;
+    }
+
+    case 'observer': {
+      const { runObserverAliasCommand } = await import('./commands/observer.js');
+      runObserverAliasCommand(args.slice(1));
       break;
     }
 

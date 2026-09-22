@@ -1,0 +1,22 @@
+{
+  "name": "claude-mem-host-observer",
+  "version": "1.0.0",
+  "description": "OpenAI-compatible host observer that forwards claude-mem generation jobs to a local LM Studio endpoint with JSON-schema-enforced output, converted to claude-mem's XML contract.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "claude-mem-observer": "./bin/claude-mem-observer.mjs"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc",
+    "start:built": "node dist/server.js",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
